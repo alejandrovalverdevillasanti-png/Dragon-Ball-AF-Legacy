@@ -3,8 +3,6 @@ name: Dragon Ball AF - Build
 on:
   push:
     branches: [main, master]
-  pull_request:
-    branches: [main, master]
   workflow_dispatch:
 
 permissions:
@@ -16,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Descargar proyecto
+      - name: Descargar repositorio
         uses: actions/checkout@v4
 
       - name: Instalar Java 17
@@ -25,31 +23,48 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Descomprimir proyecto
+        shell: bash
+        run: |
+          mkdir -p source
+
+          ZIP=$(find . -maxdepth 2 -type f \
+            -name "Drag-n-Ball-AF_repo_listo.zip" | head -n 1)
+
+          if [ -z "$ZIP" ]; then
+            echo "ERROR: No se encuentra el ZIP del proyecto."
+            exit 1
+          fi
+
+          unzip -q "$ZIP" -d source
+
+          echo "Contenido extraído:"
+          find source -maxdepth 3 -type f | head -100
+
       - name: Localizar proyecto Gradle
         id: locate
         shell: bash
         run: |
-          SETTINGS=$(find . -maxdepth 8 -type f \
+          SETTINGS=$(find source -type f \
             -name settings.gradle \
             -not -path '*/.gradle/*' | head -n 1)
 
           if [ -z "$SETTINGS" ]; then
-            echo "ERROR: No se encuentra settings.gradle"
-            find . -maxdepth 5 -type f | head -150
+            echo "ERROR: No se encuentra settings.gradle."
             exit 1
           fi
 
           PROJECT_DIR=$(dirname "$SETTINGS")
 
           if [ ! -f "$PROJECT_DIR/build.gradle" ]; then
-            echo "ERROR: No se encuentra build.gradle"
+            echo "ERROR: Falta build.gradle."
             exit 1
           fi
 
           echo "Proyecto encontrado: $PROJECT_DIR"
           echo "project_dir=$PROJECT_DIR" >> "$GITHUB_OUTPUT"
 
-      - name: Preparar Gradle 8.8
+      - name: Preparar Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.8'
@@ -59,16 +74,15 @@ jobs:
         run: |
           java -version
           gradle --version
-          ls -la
 
       - name: Compilar mod Forge 1.20.1
         working-directory: ${{ steps.locate.outputs.project_dir }}
         run: gradle clean build --no-daemon --stacktrace
 
-      - name: Publicar archivo JAR
+      - name: Publicar JAR
         uses: actions/upload-artifact@v4
         with:
-          name: Dragon-Ball-AF-Forge-1.20.1
+          name: Dragon-Ball-AF-1.20.1
           path: ${{ steps.locate.outputs.project_dir }}/build/libs/*.jar
           if-no-files-found: error
           retention-days: 14
