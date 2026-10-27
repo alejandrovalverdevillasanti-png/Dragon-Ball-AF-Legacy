@@ -20,30 +20,29 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Instalar Java 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
-          cache: gradle
 
       - name: Localizar proyecto Gradle
         id: locate
         shell: bash
         run: |
-          SETTINGS=$(find . -maxdepth 6 -type f \
+          SETTINGS=$(find . -maxdepth 8 -type f \
             -name settings.gradle \
             -not -path '*/.gradle/*' | head -n 1)
 
           if [ -z "$SETTINGS" ]; then
             echo "ERROR: No se encuentra settings.gradle"
-            find . -maxdepth 4 -type f | head -100
+            find . -maxdepth 5 -type f | head -150
             exit 1
           fi
 
           PROJECT_DIR=$(dirname "$SETTINGS")
 
           if [ ! -f "$PROJECT_DIR/build.gradle" ]; then
-            echo "ERROR: No se encuentra build.gradle en $PROJECT_DIR"
+            echo "ERROR: No se encuentra build.gradle"
             exit 1
           fi
 
@@ -55,18 +54,18 @@ jobs:
         with:
           gradle-version: '8.8'
 
-      - name: Comprobar archivos
+      - name: Comprobar entorno
         working-directory: ${{ steps.locate.outputs.project_dir }}
         run: |
           java -version
           gradle --version
           ls -la
 
-      - name: Compilar mod Forge
+      - name: Compilar mod Forge 1.20.1
         working-directory: ${{ steps.locate.outputs.project_dir }}
         run: gradle clean build --no-daemon --stacktrace
 
-      - name: Publicar JAR
+      - name: Publicar archivo JAR
         uses: actions/upload-artifact@v4
         with:
           name: Dragon-Ball-AF-Forge-1.20.1
