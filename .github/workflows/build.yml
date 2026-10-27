@@ -1,10 +1,10 @@
-name: Build Dragon Ball AF
+name: Dragon Ball AF - Build
 
 on:
   push:
-    branches: [ main ]
+    branches: [main, master]
   pull_request:
-    branches: [ main ]
+    branches: [main, master]
   workflow_dispatch:
 
 permissions:
@@ -12,6 +12,7 @@ permissions:
 
 jobs:
   build:
+    name: Compilar Dragon Ball AF
     runs-on: ubuntu-latest
 
     steps:
@@ -23,18 +24,52 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+          cache: gradle
 
-      - name: Preparar Gradle
+      - name: Localizar proyecto Gradle
+        id: locate
+        shell: bash
+        run: |
+          SETTINGS=$(find . -maxdepth 6 -type f \
+            -name settings.gradle \
+            -not -path '*/.gradle/*' | head -n 1)
+
+          if [ -z "$SETTINGS" ]; then
+            echo "ERROR: No se encuentra settings.gradle"
+            find . -maxdepth 4 -type f | head -100
+            exit 1
+          fi
+
+          PROJECT_DIR=$(dirname "$SETTINGS")
+
+          if [ ! -f "$PROJECT_DIR/build.gradle" ]; then
+            echo "ERROR: No se encuentra build.gradle en $PROJECT_DIR"
+            exit 1
+          fi
+
+          echo "Proyecto encontrado: $PROJECT_DIR"
+          echo "project_dir=$PROJECT_DIR" >> "$GITHUB_OUTPUT"
+
+      - name: Preparar Gradle 8.8
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.1.1'
+          gradle-version: '8.8'
 
-      - name: Compilar mod
-        run: gradle build --no-daemon
+      - name: Comprobar archivos
+        working-directory: ${{ steps.locate.outputs.project_dir }}
+        run: |
+          java -version
+          gradle --version
+          ls -la
 
-      - name: Guardar archivo JAR
+      - name: Compilar mod Forge
+        working-directory: ${{ steps.locate.outputs.project_dir }}
+        run: gradle clean build --no-daemon --stacktrace
+
+      - name: Publicar JAR
         uses: actions/upload-artifact@v4
         with:
-          name: Dragon-Ball-AF
-          path: build/libs/*.jar
+          name: Dragon-Ball-AF-Forge-1.20.1
+          path: ${{ steps.locate.outputs.project_dir }}/build/libs/*.jar
           if-no-files-found: error
+          retention-days: 14
